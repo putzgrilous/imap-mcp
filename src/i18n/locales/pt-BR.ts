@@ -122,6 +122,11 @@ export const ptBR: Record<MessageKey, string> = {
   "tool.send_email.param_bcc": "Destinatários BCC (opcional)",
   "tool.send_email.param_reply_to": "Endereço de resposta (opcional)",
   "tool.send_email.param_in_reply_to": "Message-ID do email sendo respondido (opcional)",
+  "tool.send_email.param_attachments": "Anexos do email em base64 (opcional)",
+  "tool.send_email.param_attachment_filename": "Nome do arquivo do anexo",
+  "tool.send_email.param_attachment_content_base64": "Conteudo do anexo codificado em base64",
+  "tool.send_email.param_attachment_content_type": "Tipo MIME do anexo (opcional)",
+  "tool.send_email.param_attachment_cid": "Content-ID para anexo inline (opcional)",
   "tool.send_email.success": "Email enviado. Message-ID: {{messageId}}",
 
   "error.connection_failed": "Falha ao conectar ao servidor IMAP: {{details}}",

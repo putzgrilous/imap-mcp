@@ -3,6 +3,15 @@ import { getLogger } from "../../logging/logger.js";
 
 const log = getLogger("imap-write");
 
+export interface MoveEmailResult {
+  sourceFolder: string;
+  destinationFolder: string;
+  sourceUid: number;
+  destinationUid?: number;
+  uidValidity?: string;
+  uidMapAvailable: boolean;
+}
+
 export async function markRead(
   client: ImapFlow,
   folder: string,
@@ -27,11 +36,24 @@ export async function moveEmail(
   folder: string,
   uid: number,
   destination: string,
-): Promise<void> {
+): Promise<MoveEmailResult> {
   const lock = await client.getMailboxLock(folder);
   try {
-    await client.messageMove({ uid }, destination, { uid: true });
-    log.debug({ uid, folder, destination }, "moveEmail");
+    const result = await client.messageMove([uid], destination, { uid: true });
+    if (!result) {
+      throw new Error(`Email UID ${uid} not found in ${folder}.`);
+    }
+    const destinationUid = result.uidMap?.get(uid);
+    const moveResult: MoveEmailResult = {
+      sourceFolder: folder,
+      destinationFolder: destination,
+      sourceUid: uid,
+      destinationUid,
+      uidValidity: result.uidValidity?.toString(),
+      uidMapAvailable: Boolean(result.uidMap),
+    };
+    log.debug({ ...moveResult }, "moveEmail");
+    return moveResult;
   } finally {
     lock.release();
   }

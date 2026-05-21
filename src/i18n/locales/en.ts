@@ -139,6 +139,11 @@ export const en = {
   "tool.send_email.param_bcc": "BCC recipients (optional)",
   "tool.send_email.param_reply_to": "Reply-To address (optional)",
   "tool.send_email.param_in_reply_to": "Message-ID of the email being replied to (optional)",
+  "tool.send_email.param_attachments": "Email attachments encoded as base64 (optional)",
+  "tool.send_email.param_attachment_filename": "Attachment filename",
+  "tool.send_email.param_attachment_content_base64": "Attachment content encoded as base64",
+  "tool.send_email.param_attachment_content_type": "Attachment MIME type (optional)",
+  "tool.send_email.param_attachment_cid": "Content-ID for inline attachment (optional)",
   "tool.send_email.success": "Email sent. Message-ID: {{messageId}}",
 
   // Errors

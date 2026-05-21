@@ -180,7 +180,7 @@ You do not need to edit this file manually — use `setup_account`, `update_acco
 {
   "version": 2,
   "locale": "en",
-  "logLevel": "warn",
+  "logLevel": "error",
   "features": {
     "list_accounts": true,
     "list_folders": true,
@@ -231,6 +231,12 @@ Write and send tools are **disabled by default** to prevent accidental data loss
 
 Set `"locale": "pt-BR"` for Portuguese responses, `"en"` for English (default).
 
+### Logging
+
+The default `logLevel` is `error` to keep MCP stdio sessions quiet. Supported values are `fatal`, `error`, `warn`, `info`, `debug`, and `trace`.
+
+For temporary troubleshooting, set `IMAP_MCP_DEBUG=1` to force `debug` logs without editing `config.json`.
+
 ---
 
 ## Available Tools
@@ -260,6 +266,8 @@ Set `"locale": "pt-BR"` for Portuguese responses, `"en"` for English (default).
 ✅ = enabled by default · ❌ = must enable in `config.json`
 
 ---
+
+Public tool and argument names use `snake_case`. Use `move_email`, not `moveEmail` or `move-email`.
 
 ## Provider Setup Guides
 
@@ -562,6 +570,14 @@ Defina `"locale": "pt-BR"` para respostas em português.
 
 ---
 
+### Logs
+
+O `logLevel` padrao e `error` para manter sessoes MCP via stdio silenciosas. Os valores suportados sao `fatal`, `error`, `warn`, `info`, `debug` e `trace`.
+
+Para diagnostico temporario, defina `IMAP_MCP_DEBUG=1` para forcar logs em `debug` sem editar o `config.json`.
+
+---
+
 ## Ferramentas disponíveis
 
 | Ferramenta | Padrão | Descrição |
@@ -589,6 +605,8 @@ Defina `"locale": "pt-BR"` para respostas em português.
 ✅ = habilitado por padrão · ❌ = habilitar no `config.json`
 
 ---
+
+Os nomes publicos das ferramentas e parametros usam `snake_case`. Use `move_email`, nao `moveEmail` ou `move-email`.
 
 ## Guias por provedor
 

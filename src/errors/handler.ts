@@ -17,7 +17,7 @@ export function formatToolError(err: unknown): string {
   }
 
   if (err instanceof Error) {
-    log.error({ name: err.name }, err.message);
+    log.error({ name: err.name, stack: err.stack, cause: (err as NodeJS.ErrnoException).code }, err.message);
     return `Error: ${sanitizeMessage(err.message)}`;
   }
 

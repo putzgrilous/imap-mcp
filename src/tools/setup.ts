@@ -107,6 +107,8 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
     host: string;
     port: number;
     secure: boolean;
+    smtp_host?: string;
+    smtp_port?: number;
   }>(
     server,
     "setup_account",
@@ -125,8 +127,10 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
       host: z.string().min(1).describe("IMAP server hostname (e.g. imap.gmail.com)"),
       port: z.number().int().min(1).max(65535).default(993).describe("IMAP port (default: 993)"),
       secure: z.boolean().default(true).describe("Use SSL/TLS (default: true)"),
+      smtp_host: z.string().optional().describe("SMTP hostname — derived from IMAP host if omitted (e.g. smtp.gmail.com)"),
+      smtp_port: z.number().int().min(1).max(65535).optional().describe("SMTP port (default: 465 for SSL, 587 for STARTTLS)"),
     },
-    async ({ email, name, host, port, secure }) => {
+    async ({ email, name, host, port, secure, smtp_host, smtp_port }) => {
       try {
         const password = await promptPassword(email);
 
@@ -148,6 +152,8 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
           port,
           secure,
           auth: { type: "password" as const },
+          ...(smtp_host ? { smtpHost: smtp_host } : {}),
+          ...(smtp_port ? { smtpPort: smtp_port } : {}),
           // Only kept if keychain unavailable — saveConfig strips it otherwise
           ...(keychainOk ? {} : { password }),
         };
@@ -263,11 +269,13 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
     host?: string;
     port?: number;
     secure?: boolean;
+    smtp_host?: string;
+    smtp_port?: number;
   }>(
     server,
     "update_account",
     [
-      "Update settings for an existing account (host, port, name).",
+      "Update settings for an existing account (host, port, name, SMTP).",
       "To change the password, use setup_account instead.",
       "",
       "⚠️  SECURITY: Never type passwords in the chat.",
@@ -278,8 +286,10 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
       host: z.string().min(1).optional().describe("New IMAP hostname"),
       port: z.number().int().min(1).max(65535).optional().describe("New IMAP port"),
       secure: z.boolean().optional().describe("Use SSL/TLS"),
+      smtp_host: z.string().optional().describe("SMTP hostname override (e.g. smtp.gmail.com)"),
+      smtp_port: z.number().int().min(1).max(65535).optional().describe("SMTP port override"),
     },
-    async ({ email, name, host, port, secure }) => {
+    async ({ email, name, host, port, secure, smtp_host, smtp_port }) => {
       try {
         const configPath = resolveConfigPath();
         const current = loadOrCreateConfig(configPath);
@@ -296,6 +306,8 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
           ...(host !== undefined && { host }),
           ...(port !== undefined && { port }),
           ...(secure !== undefined && { secure }),
+          ...(smtp_host !== undefined && { smtpHost: smtp_host }),
+          ...(smtp_port !== undefined && { smtpPort: smtp_port }),
         };
 
         saveConfig(configPath, current);

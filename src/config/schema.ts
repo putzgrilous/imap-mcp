@@ -66,7 +66,7 @@ export const ServerConfigSchema = z.object({
   locale: z.string().default("en"),
   logLevel: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
-    .default("warn"),
+    .default("error"),
   enableMetrics: z.boolean().default(false),
   features: FeaturesConfigSchema.default({}),
   cache: CacheConfigSchema.default({}),

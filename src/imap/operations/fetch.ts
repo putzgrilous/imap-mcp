@@ -19,7 +19,7 @@ export async function fetchAttachment(
 ): Promise<AttachmentResult> {
   const lock = await client.getMailboxLock(folder);
   try {
-    for await (const msg of client.fetch([uid], { source: true })) {
+    for await (const msg of client.fetch([uid], { source: true }, { uid: true })) {
       const parsed = await simpleParser(msg.source as Buffer);
       const att = parsed.attachments[index];
       if (!att) {

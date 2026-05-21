@@ -2,7 +2,7 @@
   "$comment": "Copy this file to config.json and fill in your account details. Passwords are stored in the OS keychain — do NOT put them here.",
   "version": 2,
   "locale": "en",
-  "logLevel": "warn",
+  "logLevel": "error",
   "features": {
     "_comment": "Read tools are enabled by default. Write/send/watch tools must be explicitly enabled.",
     "list_accounts": true,
@@ -37,10 +37,13 @@
     {
       "name": "Work Email",
       "email": "you@yourcompany.com",
-      "host": "mail.yourcompany.com",
+      "host": "imap.yourcompany.com",
       "port": 993,
       "secure": true,
-      "auth": { "type": "password" }
+      "auth": { "type": "password" },
+      "_comment_smtp": "Optional: override SMTP settings if different from IMAP provider",
+      "smtpHost": "smtp.yourcompany.com",
+      "smtpPort": 587
     }
   ]
 }

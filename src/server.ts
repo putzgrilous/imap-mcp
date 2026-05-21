@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { z } from "zod";
 import type { ServerConfig, AccountConfig } from "./config/schema.js";
@@ -54,6 +55,31 @@ function decodePageToken(token: string): { email: string; folder: string; uid: n
     return JSON.parse(Buffer.from(token, "base64").toString("utf8")) as { email: string; folder: string; uid: number };
   } catch {
     return null;
+  }
+}
+
+// Creates a fresh dedicated connection for operations that hold a mailbox lock
+// while parsing (get_email, get_attachment, reply_email). The pool reuses
+// connections but imapflow does not allow concurrent getMailboxLock on the same
+// connection, so these operations need their own short-lived client.
+async function withFreshConnection<T>(
+  account: AccountConfig,
+  fn: (client: ImapFlow) => Promise<T>,
+): Promise<T> {
+  const credentials = await getCredentials(account);
+  const client = new ImapFlow({
+    host: account.host,
+    port: account.port,
+    secure: account.secure,
+    auth: { user: account.email, pass: credentials.value },
+    logger: false,
+    tls: { rejectUnauthorized: true },
+  });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.logout().catch(() => {});
   }
 }
 
@@ -313,11 +339,11 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
       try {
         const account = findAccount(config, email);
         return await withRetry(() =>
-          pool.withConnection(account, async (client) => {
+          withFreshConnection(account, async (client) => {
             const lock = await client.getMailboxLock(folder);
             let result: object | null = null;
             try {
-              for await (const msg of client.fetch([uid], { source: true, envelope: true })) {
+              for await (const msg of client.fetch([uid], { source: true, envelope: true }, { uid: true })) {
                 const parsed = await simpleParser(msg.source as Buffer);
                 const toText = parsed.to
                   ? Array.isArray(parsed.to)
@@ -371,7 +397,7 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
       try {
         const account = findAccount(config, email);
         return await withRetry(() =>
-          pool.withConnection(account, async (client) => {
+          withFreshConnection(account, async (client) => {
             const att = await fetchAttachment(client, folder, uid, index);
             log.debug({ email, folder, uid, index, filename: att.filename }, "get_attachment");
             return {
@@ -490,11 +516,17 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
       try {
         const account = findAccount(config, email);
         return await withRetry(() =>
-          pool.withConnection(account, async (client) => {
-            await moveEmail(client, folder, uid, destination);
-            log.debug({ email, folder, uid, destination }, "move_email");
+          withFreshConnection(account, async (client) => {
+            const moveResult = await moveEmail(client, folder, uid, destination);
+            log.debug({ email, folder, uid, destination, destinationUid: moveResult.destinationUid }, "move_email");
             return {
-              content: [{ type: "text", text: t("tool.move_email.success", { uid: String(uid), destination }) }],
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  message: t("tool.move_email.success", { uid: String(uid), destination }),
+                  ...moveResult,
+                }, null, 2),
+              }],
             };
           }),
         );
@@ -595,6 +627,12 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
     bcc?: string;
     reply_to?: string;
     in_reply_to?: string;
+    attachments?: Array<{
+      filename: string;
+      content_base64: string;
+      content_type?: string;
+      cid?: string;
+    }>;
   }>(
     server,
     "send_email",
@@ -609,8 +647,14 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
       bcc: z.string().optional().describe(t("tool.send_email.param_bcc")),
       reply_to: z.string().optional().describe(t("tool.send_email.param_reply_to")),
       in_reply_to: z.string().optional().describe(t("tool.send_email.param_in_reply_to")),
+      attachments: z.array(z.object({
+        filename: z.string().min(1).describe(t("tool.send_email.param_attachment_filename")),
+        content_base64: z.string().min(1).describe(t("tool.send_email.param_attachment_content_base64")),
+        content_type: z.string().optional().describe(t("tool.send_email.param_attachment_content_type")),
+        cid: z.string().optional().describe(t("tool.send_email.param_attachment_cid")),
+      })).optional().describe(t("tool.send_email.param_attachments")),
     },
-    async ({ email, to, subject, text, html, cc, bcc, reply_to, in_reply_to }) => {
+    async ({ email, to, subject, text, html, cc, bcc, reply_to, in_reply_to, attachments }) => {
       try {
         const account = findAccount(config, email);
         const credentials = await getCredentials(account);
@@ -618,8 +662,14 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
           to, subject, text, html, cc, bcc,
           replyTo: reply_to,
           inReplyTo: in_reply_to,
+          attachments: attachments?.map((attachment) => ({
+            filename: attachment.filename,
+            contentBase64: attachment.content_base64,
+            contentType: attachment.content_type,
+            cid: attachment.cid,
+          })),
         });
-        log.debug({ email, to, subject }, "send_email");
+        log.debug({ email, to, subject, attachmentCount: attachments?.length ?? 0 }, "send_email");
         return { content: [{ type: "text", text: t("tool.send_email.success", { messageId }) }] };
       } catch (err) {
         return { content: [{ type: "text", text: formatToolError(err) }] };
@@ -664,10 +714,10 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
         let originalSubject = "";
 
         await withRetry(() =>
-          pool.withConnection(account, async (client) => {
+          withFreshConnection(account, async (client) => {
             const lock = await client.getMailboxLock(folder);
             try {
-              for await (const msg of client.fetch([uid], { source: true })) {
+              for await (const msg of client.fetch([uid], { source: true }, { uid: true })) {
                 const parsed = await simpleParser(msg.source as Buffer);
                 originalMessageId = parsed.messageId ?? "";
                 originalReferences = (parsed.references as string[] | string | undefined)

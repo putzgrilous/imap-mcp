@@ -42,15 +42,20 @@ export function loadOrCreateConfig(configPath: string): ServerConfig {
   return ServerConfigSchema.parse({ accounts: [] });
 }
 
-export function saveConfig(configPath: string, config: ServerConfig): void {
-  // Never persist plain-text passwords
+export function saveConfig(
+  configPath: string,
+  config: ServerConfig,
+  options?: { allowPlainTextPasswords?: boolean },
+): void {
   const safe = {
     ...config,
-    accounts: config.accounts.map((a) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password: _pw, ...rest } = a;
-      return rest;
-    }),
+    accounts: options?.allowPlainTextPasswords
+      ? config.accounts
+      : config.accounts.map((a) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { password: _pw, ...rest } = a;
+        return rest;
+      }),
   };
   fs.writeFileSync(configPath, JSON.stringify(safe, null, 2) + "\n", { mode: 0o600 });
   log.info({ configPath }, "Config saved");

@@ -68,7 +68,7 @@ In any Claude conversation, ask:
 
 > "Set up my email account"
 
-Claude will call the `setup_account` tool. A **password prompt will appear in the terminal window** that opens alongside Claude Desktop — type your password there. It never goes through the chat.
+Claude will call the `setup_account` tool and return a temporary local link. Open it in your browser, enter the password there, and the MCP server saves the account locally. It never goes through the chat.
 
 ---
 
@@ -151,18 +151,13 @@ Once the server is running, ask Claude in any conversation:
 > "Add my Gmail account"  
 > "Configure dante@company.com"
 
-Claude will call `setup_account`. A terminal window will open showing:
+Claude will call `setup_account` and return a temporary local link like:
 
-```
-╔══════════════════════════════════════════════════════════════════╗
-║  Your password is entered DIRECTLY in the terminal.             ║
-║  It does NOT pass through this chat or Claude.                  ║
-║  NEVER type your password in the chat window.                   ║
-╚══════════════════════════════════════════════════════════════════╝
-Password for you@example.com: ████████
+```text
+http://127.0.0.1:7823/setup?token=...
 ```
 
-Type your password there. Characters are shown as `*`. Press Enter.
+Open that link in your browser, enter the password or app password, and submit the form. The link expires in 5 minutes. The password is sent only to the local MCP process, never through the chat.
 
 > **Gmail and Outlook users:** You need an **App Password**, not your regular login password. See [Provider Setup Guides](#provider-setup-guides).
 
@@ -249,7 +244,7 @@ For temporary troubleshooting, set `IMAP_MCP_DEBUG=1` to force `debug` logs with
 | `search_emails` | ✅ | Search by text, date, size, flags |
 | `get_email` | ✅ | Read full email with body and attachments |
 | `get_attachment` | ✅ | Download attachment as base64 |
-| `setup_account` | ✅ | Add or update an account (password via terminal) |
+| `setup_account` | ✅ | Add or update an account (password via local browser form) |
 | `remove_account` | ✅ | Remove an account |
 | `update_account` | ✅ | Update host/port/name without changing password |
 | `list_config` | ✅ | Show current configuration (no passwords) |
@@ -322,7 +317,7 @@ Ask your email provider or IT team for:
 
 ## Security Model
 
-- **Passwords are never stored in the chat.** The `setup_account` tool opens a terminal prompt. Claude cannot see what you type there.
+- **Passwords are never stored in the chat.** The `setup_account` tool opens a temporary local browser form. Claude cannot see what you type there.
 - **Credential storage priority:**
   1. OS keychain (Windows Credential Manager, macOS Keychain) — used when available
   2. Environment variable `IMAP_PASSWORD_YOU_AT_EXAMPLE_COM`
@@ -363,9 +358,9 @@ This is normal — do not replace it with a plain `tsc` call.
 **"No accounts configured" message**
 - The server started successfully. Ask Claude to "set up my email account" to add the first account.
 
-**Password prompt doesn't appear**
-- The terminal window may be behind other windows. Check the taskbar.
-- On Windows, the prompt appears in the terminal that Claude Desktop uses to run the server — it may be minimized.
+**Setup link doesn't open**
+- Copy the full `http://127.0.0.1:.../setup?token=...` URL into your browser.
+- The link expires after 5 minutes. Run `setup_account` again if it expired.
 
 **Gmail: authentication failed**
 - You must use an App Password, not your regular Gmail password. See [Gmail setup](#gmail).
@@ -448,7 +443,7 @@ Em qualquer conversa com o Claude, diga:
 
 > "Configure minha conta de email"
 
-O Claude chamará a ferramenta `setup_account`. **Uma janela de terminal abrirá** — digite sua senha lá. Ela nunca passa pelo chat.
+O Claude chamará a ferramenta `setup_account` e retornará um link local temporário. Abra o link no navegador, digite a senha ali e o servidor MCP salva a conta localmente. Ela nunca passa pelo chat.
 
 ---
 
@@ -527,18 +522,13 @@ Com o servidor rodando, diga ao Claude:
 > "Adicione meu Gmail"  
 > "Configure dante@empresa.com.br"
 
-O Claude chamará `setup_account`. Uma janela de terminal mostrará:
+O Claude chamará `setup_account` e retornará um link local temporário como:
 
-```
-╔══════════════════════════════════════════════════════════════════╗
-║  Sua senha será digitada DIRETAMENTE no terminal.               ║
-║  Ela NÃO passa por este chat nem é vista pelo Claude.           ║
-║  NUNCA digite sua senha na janela do chat.                      ║
-╚══════════════════════════════════════════════════════════════════╝
-Senha para você@exemplo.com: ████████
+```text
+http://127.0.0.1:7823/setup?token=...
 ```
 
-Digite sua senha no terminal. Os caracteres aparecem como `*`. Pressione Enter.
+Abra esse link no navegador, digite a senha ou senha de app e envie o formulário. O link expira em 5 minutos. A senha é enviada apenas para o processo MCP local, nunca pelo chat.
 
 > **Usuários do Gmail e Outlook:** Você precisa de uma **Senha de App**, não sua senha normal. Veja os [Guias por provedor](#guias-por-provedor).
 
@@ -588,7 +578,7 @@ Para diagnostico temporario, defina `IMAP_MCP_DEBUG=1` para forcar logs em `debu
 | `search_emails` | ✅ | Pesquisar por texto, data, tamanho, flags |
 | `get_email` | ✅ | Ler email completo com corpo e anexos |
 | `get_attachment` | ✅ | Baixar anexo em base64 |
-| `setup_account` | ✅ | Adicionar ou atualizar conta (senha via terminal) |
+| `setup_account` | ✅ | Adicionar ou atualizar conta (senha via formulario local no navegador) |
 | `remove_account` | ✅ | Remover conta |
 | `update_account` | ✅ | Atualizar host/porta/nome sem alterar senha |
 | `list_config` | ✅ | Mostrar configuração atual (sem senhas) |
@@ -645,7 +635,7 @@ Peça ao seu provedor de email ou equipe de TI:
 
 ## Modelo de segurança
 
-- **Senhas nunca são armazenadas no chat.** A ferramenta `setup_account` abre um prompt no terminal. O Claude não consegue ver o que você digita lá.
+- **Senhas nunca são armazenadas no chat.** A ferramenta `setup_account` abre um formulário local temporário no navegador. O Claude não consegue ver o que você digita ali.
 - **Prioridade de armazenamento de credenciais:**
   1. Keychain do sistema operacional (Windows Credential Manager, macOS Keychain)
   2. Variável de ambiente `IMAP_PASSWORD_VOCE_AT_EXEMPLO_COM`
@@ -680,8 +670,9 @@ Requisitos: Node.js 20+, npm 10+.
 **Mensagem "Nenhuma conta configurada"**
 - O servidor iniciou com sucesso. Diga ao Claude "configure minha conta de email" para adicionar a primeira conta.
 
-**O prompt de senha não aparece**
-- A janela do terminal pode estar atrás de outras janelas. Verifique a barra de tarefas.
+**O link de setup não abre**
+- Copie a URL completa `http://127.0.0.1:.../setup?token=...` para o navegador.
+- O link expira em 5 minutos. Rode `setup_account` novamente se ele expirar.
 
 **Gmail: falha de autenticação**
 - Use uma Senha de App, não sua senha normal do Gmail.

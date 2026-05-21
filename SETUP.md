@@ -8,9 +8,17 @@ Abra o terminal na pasta do projeto e rode:
 npm install
 ```
 
-## 2. Preencher as senhas
+## 2. Adicionar contas
 
-Abra o arquivo `config.json` e substitua `SENHA_AQUI` pela senha real de cada conta.
+Depois de conectar o MCP ao Claude, chame a ferramenta `setup_account`.
+Ela gera um link local temporario, por exemplo:
+
+```text
+http://127.0.0.1:7823/setup?token=...
+```
+
+Abra o link no navegador e digite a senha ou senha de app no formulario local.
+A senha nao passa pelo chat. O link expira em 5 minutos.
 
 ---
 

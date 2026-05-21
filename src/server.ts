@@ -421,7 +421,7 @@ export function createServer(config: ServerConfig): { server: McpServer; pool: I
   );
 
   // ── account management (setup, remove, update) ───────────────────────────────
-  // Passwords are entered via secure terminal prompt — never through the chat.
+  // Passwords are entered via a temporary local browser form, never through the chat.
   registerSetupTool(server, f);
 
   // ── list_config ──────────────────────────────────────────────────────────────

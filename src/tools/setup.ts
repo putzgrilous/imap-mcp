@@ -84,7 +84,8 @@ async function saveAccountWithPassword(input: SetupAccountInput, password: strin
     current.accounts.push(newAccount);
   }
 
-  saveConfig(configPath, current, { allowPlainTextPasswords: !keychainOk });
+  const hasPlainTextPasswords = current.accounts.some((account) => Boolean(account.password));
+  saveConfig(configPath, current, { allowPlainTextPasswords: hasPlainTextPasswords });
   return { configPath, keychainOk };
 }
 

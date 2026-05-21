@@ -22,6 +22,8 @@ type SetupAccountInput = {
   smtp_port?: number;
 };
 
+type CredentialStorageMode = "auto" | "keychain" | "config";
+
 function registerTextTool<TArgs extends Record<string, unknown>>(
   server: McpServer,
   name: string,
@@ -57,12 +59,21 @@ function sendHtml(res: http.ServerResponse, statusCode: number, html: string): v
   res.end(html);
 }
 
-async function saveAccountWithPassword(input: SetupAccountInput, password: string): Promise<{
+async function saveAccountWithPassword(input: SetupAccountInput, password: string, storageMode: CredentialStorageMode): Promise<{
   configPath: string;
   keychainOk: boolean;
+  passwordInConfig: boolean;
+  storage: "keychain" | "config";
 }> {
-  const keychainWriteOk = await setKeychainPassword(input.email, password);
+  const shouldTryKeychain = storageMode !== "config";
+  const keychainWriteOk = shouldTryKeychain ? await setKeychainPassword(input.email, password) : false;
   const keychainOk = keychainWriteOk && await getKeychainPassword(input.email) === password;
+
+  if (storageMode === "keychain" && !keychainOk) {
+    throw new Error("OS keychain storage could not be verified.");
+  }
+
+  const storeInConfig = storageMode === "config" || !keychainOk;
   const configPath = resolveConfigPath();
   const current = loadOrCreateConfig(configPath);
 
@@ -75,7 +86,7 @@ async function saveAccountWithPassword(input: SetupAccountInput, password: strin
     auth: { type: "password" },
     ...(input.smtp_host ? { smtpHost: input.smtp_host } : {}),
     ...(input.smtp_port ? { smtpPort: input.smtp_port } : {}),
-    ...(keychainOk ? {} : { password }),
+    ...(storeInConfig ? { password } : {}),
   };
 
   const existingIndex = current.accounts.findIndex((a) => a.email === input.email);
@@ -87,7 +98,16 @@ async function saveAccountWithPassword(input: SetupAccountInput, password: strin
 
   const hasPlainTextPasswords = current.accounts.some((account) => Boolean(account.password));
   saveConfig(configPath, current, { allowPlainTextPasswords: hasPlainTextPasswords });
-  return { configPath, keychainOk };
+  const saved = loadOrCreateConfig(configPath);
+  const savedAccount = saved.accounts.find((account) => account.email === input.email);
+  const passwordInConfig = Boolean(savedAccount?.password);
+
+  return {
+    configPath,
+    keychainOk,
+    passwordInConfig,
+    storage: keychainOk && !passwordInConfig ? "keychain" : "config",
+  };
 }
 
 function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
@@ -106,6 +126,12 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
     "<form method=\"post\">",
     "<label for=\"password\">Password or app password</label>",
     "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus>",
+    "<label for=\"credential_storage\">Credential storage</label>",
+    "<select id=\"credential_storage\" name=\"credential_storage\" style=\"display:block;width:100%;font-size:16px;margin:8px 0 16px;padding:10px\">",
+    "<option value=\"auto\">Auto: use OS keychain, fallback to config.json</option>",
+    "<option value=\"keychain\">OS keychain only</option>",
+    "<option value=\"config\">config.json</option>",
+    "</select>",
     "<button type=\"submit\">Save account</button>",
     "</form>",
     `<p class="meta">This local link expires at ${escapeHtml(expiresAt.toLocaleTimeString())}. The password is sent only to this local MCP process.</p>`,
@@ -169,18 +195,24 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
         try {
           const params = new URLSearchParams(body);
           const password = params.get("password") ?? "";
+          const storageModeRaw = params.get("credential_storage") ?? "auto";
+          const storageMode: CredentialStorageMode = storageModeRaw === "keychain" || storageModeRaw === "config"
+            ? storageModeRaw
+            : "auto";
           if (!password) {
             sendHtml(res, 400, "<h1>Password cannot be empty</h1>");
             return;
           }
 
-          const { configPath, keychainOk } = await saveAccountWithPassword(input, password);
+          const { configPath, keychainOk, passwordInConfig, storage } = await saveAccountWithPassword(input, password, storageMode);
           completed = true;
           sendHtml(res, 200, [
             "<!doctype html><html><head><meta charset=\"utf-8\"><title>imap-mcp setup complete</title></head><body>",
             "<h1>Account saved</h1>",
             `<p>${escapeHtml(input.email)} was configured successfully.</p>`,
-            `<p>Password storage: ${keychainOk ? "OS keychain" : "config.json fallback"}</p>`,
+            `<p>Password storage: ${storage === "keychain" ? "OS keychain" : "config.json"}</p>`,
+            `<p>Keychain verified: ${keychainOk ? "yes" : "no"}</p>`,
+            `<p>Password present in config.json: ${passwordInConfig ? "yes" : "no"}</p>`,
             `<p>Config: ${escapeHtml(configPath)}</p>`,
             "<p>Restart imap-mcp to apply changes.</p>",
             "</body></html>",

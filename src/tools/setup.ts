@@ -24,6 +24,14 @@ type SetupAccountInput = {
 
 type CredentialStorageMode = "auto" | "keychain" | "config";
 type KeychainStatus = { available: boolean; message: string };
+type SetupServerState = {
+  server: http.Server;
+  expiryTimer?: ReturnType<typeof setTimeout>;
+  port: number;
+  close: (reason: string) => Promise<void>;
+};
+
+let activeSetupServer: SetupServerState | undefined;
 
 function registerTextTool<TArgs extends Record<string, unknown>>(
   server: McpServer,
@@ -58,6 +66,27 @@ function sendHtml(res: http.ServerResponse, statusCode: number, html: string): v
     "x-content-type-options": "nosniff",
   });
   res.end(html);
+}
+
+function closeServer(server: http.Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((err) => {
+      if (err && (err as NodeJS.ErrnoException).code !== "ERR_SERVER_NOT_RUNNING") {
+        reject(err);
+        return;
+      }
+
+      resolve();
+    });
+    server.closeIdleConnections();
+  });
+}
+
+async function closeActiveSetupServer(reason: string): Promise<void> {
+  const current = activeSetupServer;
+  if (!current) return;
+
+  await current.close(reason);
 }
 
 function formatLocalTime(date: Date): string {
@@ -192,8 +221,6 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date, keychainS
     "<p class=\"secure\"><span><b>Local only.</b> The password is posted to 127.0.0.1 and never goes through the chat.</span></p>",
     `<p class=\"notice\"><b class=\"${keychainStatus.available ? "ok" : "warn"}\">${keychainStatus.available ? "Keychain test passed." : "Keychain test failed."}</b> ${escapeHtml(keychainStatus.message)}</p>`,
     "<form method=\"post\">",
-    "<label for=\"password\">Password or app password</label>",
-    "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus>",
     "<label for=\"credential_storage\">Credential storage</label>",
     "<select id=\"credential_storage\" name=\"credential_storage\">",
     "<option value=\"config\" selected>config.json (default)</option>",
@@ -201,6 +228,8 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date, keychainS
     "<option value=\"keychain\">OS keychain only</option>",
     "</select>",
     "<p class=\"hint\">config.json is the most predictable option for this packaged local server. The file is ignored by Git.</p>",
+    "<label for=\"password\">Password or app password</label>",
+    "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus>",
     "<button type=\"submit\">Save account</button>",
     "</form>",
     `<p class=\"footer\">This link expires at ${escapeHtml(formatLocalTime(expiresAt))}. Close this tab after saving.</p>`,
@@ -268,10 +297,13 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
   expiresAt: Date;
   keychainStatus: KeychainStatus;
 }> {
+  await closeActiveSetupServer("replaced by a new setup_account request");
+
   const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   const keychainStatus = await testKeychainAvailability();
   let completed = false;
+  let setupState: SetupServerState | undefined;
 
   const server = http.createServer((req, res) => {
     void (async () => {
@@ -332,9 +364,11 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
 
           const result = await saveAccountWithPassword(input, password, storageMode);
           completed = true;
+          res.once("finish", () => {
+            void setupState?.close("account setup completed");
+          });
           sendHtml(res, 200, renderSuccessPage(input, result));
           log.info({ email: input.email, host: input.host, port: input.port, keychainOk: result.keychainOk }, "Account configured");
-          setTimeout(() => server.close(), 250);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           sendHtml(res, 500, `<h1>Setup failed</h1><pre>${escapeHtml(msg)}</pre>`);
@@ -358,14 +392,41 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
   let port: number;
   try {
     port = await listen(7823);
-  } catch {
+    log.info({ port }, "Password setup server started");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn({ port: 7823, error: msg }, "Password setup port unavailable, using a random port");
     port = await listen(0);
+    log.info({ port }, "Password setup server started");
   }
 
   const expiryTimer = setTimeout(() => {
-    if (!completed) server.close();
+    if (!completed) void setupState?.close("setup link expired");
   }, Math.max(0, expiresAt.getTime() - Date.now()));
   expiryTimer.unref();
+
+  let closing: Promise<void> | undefined;
+  setupState = {
+    server,
+    expiryTimer,
+    port,
+    close: async (reason: string) => {
+      if (closing) return closing;
+
+      closing = (async () => {
+        clearTimeout(expiryTimer);
+        log.info({ port, reason }, "Closing password setup server");
+        try {
+          await closeServer(server);
+        } finally {
+          if (activeSetupServer === setupState) activeSetupServer = undefined;
+        }
+      })();
+
+      return closing;
+    },
+  };
+  activeSetupServer = setupState;
 
   return {
     url: `http://127.0.0.1:${port}/setup?token=${token}`,

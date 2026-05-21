@@ -333,10 +333,12 @@ Ask your email provider or IT team for:
 ## Security Model
 
 - **Passwords are never stored in the chat.** The `setup_account` tool opens a temporary local browser form. Claude cannot see what you type there.
-- **Credential storage priority:**
-  1. OS keychain (Windows Credential Manager, macOS Keychain) — used when available
+- **Setup storage is explicit.** The browser form defaults to `config.json` because it is the most predictable option for the packaged local server. The file is ignored by Git.
+- **OS keychain is tested before setup.** The form writes, reads, and deletes a temporary probe credential, then shows whether keychain storage is working on that machine.
+- **Runtime credential lookup order:**
+  1. OS keychain (when a password was saved there and can be read)
   2. Environment variable `IMAP_PASSWORD_YOU_AT_EXAMPLE_COM`
-  3. `config.json` plaintext — works but shows a warning at startup; migrate when possible
+  3. `config.json` plaintext — works locally but shows a warning at startup
 - **All connections use TLS** (`rejectUnauthorized: true`). Plain-text IMAP is not supported.
 - **Logs go to stderr only.** MCP uses stdout for JSON-RPC; logs never corrupt the protocol.
 - **No telemetry.** Zero external calls beyond your own email server.
@@ -666,10 +668,12 @@ Peça ao seu provedor de email ou equipe de TI:
 ## Modelo de segurança
 
 - **Senhas nunca são armazenadas no chat.** A ferramenta `setup_account` abre um formulário local temporário no navegador. O Claude não consegue ver o que você digita ali.
-- **Prioridade de armazenamento de credenciais:**
-  1. Keychain do sistema operacional (Windows Credential Manager, macOS Keychain)
+- **O armazenamento no setup é explícito.** O formulário do navegador usa `config.json` como padrão porque é a opção mais previsível para o servidor local empacotado. O arquivo é ignorado pelo Git.
+- **O keychain do sistema é testado antes do setup.** O formulário grava, lê e apaga uma credencial temporária, depois mostra se o keychain está funcionando naquela máquina.
+- **Ordem de leitura de credenciais em runtime:**
+  1. Keychain do sistema operacional, quando uma senha foi salva lá e pode ser lida
   2. Variável de ambiente `IMAP_PASSWORD_VOCE_AT_EXEMPLO_COM`
-  3. `config.json` em texto plano — funciona mas exibe um aviso na inicialização
+  3. `config.json` em texto plano — funciona localmente, mas exibe um aviso na inicialização
 - **Todas as conexões usam TLS.** IMAP sem criptografia não é suportado.
 - **Logs vão apenas para stderr.** O MCP usa stdout para JSON-RPC; logs nunca corrompem o protocolo.
 - **Sem telemetria.** Zero chamadas externas além do seu próprio servidor de email.

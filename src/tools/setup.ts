@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AccountConfig, FeaturesConfig } from "../config/schema.js";
 import { resolveConfigPath, loadOrCreateConfig, saveConfig } from "../config/writer.js";
-import { getKeychainPassword, setKeychainPassword } from "../credentials/keychain.js";
+import { deleteKeychainPassword, getKeychainPassword, setKeychainPassword } from "../credentials/keychain.js";
 import { getLogger } from "../logging/logger.js";
 
 const log = getLogger("setup");
@@ -23,6 +23,7 @@ type SetupAccountInput = {
 };
 
 type CredentialStorageMode = "auto" | "keychain" | "config";
+type KeychainStatus = { available: boolean; message: string };
 
 function registerTextTool<TArgs extends Record<string, unknown>>(
   server: McpServer,
@@ -62,6 +63,42 @@ function sendHtml(res: http.ServerResponse, statusCode: number, html: string): v
 function formatLocalTime(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+async function testKeychainAvailability(): Promise<KeychainStatus> {
+  const account = `__imap_mcp_keychain_test_${crypto.randomBytes(8).toString("hex")}@local.invalid`;
+  const password = crypto.randomBytes(18).toString("hex");
+
+  try {
+    const writeOk = await setKeychainPassword(account, password);
+    const readBack = writeOk ? await getKeychainPassword(account) : undefined;
+    const available = writeOk && readBack === password;
+
+    try {
+      await deleteKeychainPassword(account);
+    } catch {
+      // Best effort cleanup for the temporary probe credential.
+    }
+
+    return {
+      available,
+      message: available
+        ? "OS keychain write/read test passed."
+        : "OS keychain write/read test failed. Use config.json for this setup.",
+    };
+  } catch (err) {
+    try {
+      await deleteKeychainPassword(account);
+    } catch {
+      // Best effort cleanup for the temporary probe credential.
+    }
+
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      available: false,
+      message: `OS keychain test failed. Use config.json for this setup. Details: ${message}`,
+    };
+  }
 }
 
 async function saveAccountWithPassword(input: SetupAccountInput, password: string, storageMode: CredentialStorageMode): Promise<{
@@ -115,14 +152,14 @@ async function saveAccountWithPassword(input: SetupAccountInput, password: strin
   };
 }
 
-function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
+function renderPasswordForm(input: SetupAccountInput, expiresAt: Date, keychainStatus: KeychainStatus): string {
   return [
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\"><title>imap-mcp setup</title>",
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
     "<style>",
-    ":root{color-scheme:light dark;--bg:#f6f7f9;--panel:#fff;--text:#172033;--muted:#5f6b7a;--line:#d9dee7;--accent:#1f6feb;--accent2:#1557b0;--ok:#16833a}",
-    "@media(prefers-color-scheme:dark){:root{--bg:#101419;--panel:#171c22;--text:#eef2f7;--muted:#a8b3c1;--line:#303946;--accent:#66a3ff;--accent2:#8ab8ff;--ok:#51c878}}",
+    ":root{color-scheme:light dark;--bg:#f6f7f9;--panel:#fff;--text:#172033;--muted:#5f6b7a;--line:#d9dee7;--accent:#1f6feb;--accent2:#1557b0;--ok:#16833a;--warn:#a15c00}",
+    "@media(prefers-color-scheme:dark){:root{--bg:#101419;--panel:#171c22;--text:#eef2f7;--muted:#a8b3c1;--line:#303946;--accent:#66a3ff;--accent2:#8ab8ff;--ok:#51c878;--warn:#f5b65a}}",
     "*{box-sizing:border-box}",
     "body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.45;display:grid;place-items:center;padding:24px}",
     "main{width:min(640px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:28px;box-shadow:0 18px 45px rgba(18,29,43,.12)}",
@@ -133,6 +170,10 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
     ".account strong{display:block;font-size:16px;margin-bottom:2px}",
     ".secure{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:14px;margin:0 0 18px}",
     ".secure b{color:var(--ok);font-weight:700}",
+    ".notice{padding:12px 14px;border:1px solid var(--line);border-radius:8px;margin:0 0 18px;color:var(--muted);background:rgba(127,127,127,.05);font-size:14px}",
+    ".notice b{font-weight:700}",
+    ".notice .ok{color:var(--ok)}",
+    ".notice .warn{color:var(--warn)}",
     "label{display:block;font-weight:650;margin:16px 0 7px}",
     "input,select{display:block;width:100%;font-size:16px;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}",
     "input:focus,select:focus{outline:3px solid color-mix(in srgb,var(--accent) 25%,transparent);border-color:var(--accent)}",
@@ -149,13 +190,14 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
     `<span>${escapeHtml(input.email)}</span>`,
     "</div>",
     "<p class=\"secure\"><span><b>Local only.</b> The password is posted to 127.0.0.1 and never goes through the chat.</span></p>",
+    `<p class=\"notice\"><b class=\"${keychainStatus.available ? "ok" : "warn"}\">${keychainStatus.available ? "Keychain test passed." : "Keychain test failed."}</b> ${escapeHtml(keychainStatus.message)}</p>`,
     "<form method=\"post\">",
     "<label for=\"password\">Password or app password</label>",
     "<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required autofocus>",
     "<label for=\"credential_storage\">Credential storage</label>",
     "<select id=\"credential_storage\" name=\"credential_storage\">",
-    "<option value=\"config\" selected>config.json</option>",
-    "<option value=\"auto\">Auto: use OS keychain, fallback to config.json</option>",
+    "<option value=\"config\" selected>config.json (default)</option>",
+    "<option value=\"auto\">Try OS keychain, fallback to config.json</option>",
     "<option value=\"keychain\">OS keychain only</option>",
     "</select>",
     "<p class=\"hint\">config.json is the most predictable option for this packaged local server. The file is ignored by Git.</p>",
@@ -224,9 +266,11 @@ function renderSuccessPage(input: SetupAccountInput, result: {
 async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
   url: string;
   expiresAt: Date;
+  keychainStatus: KeychainStatus;
 }> {
   const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const keychainStatus = await testKeychainAvailability();
   let completed = false;
 
   const server = http.createServer((req, res) => {
@@ -257,7 +301,7 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
       }
 
       if (req.method === "GET") {
-        sendHtml(res, 200, renderPasswordForm(input, expiresAt));
+        sendHtml(res, 200, renderPasswordForm(input, expiresAt, keychainStatus));
         return;
       }
 
@@ -326,6 +370,7 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
   return {
     url: `http://127.0.0.1:${port}/setup?token=${token}`,
     expiresAt,
+    keychainStatus,
   };
 }
 
@@ -354,7 +399,7 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
     },
     async (input) => {
       try {
-        const { url, expiresAt } = await startPasswordSetupServer(input);
+        const { url, expiresAt, keychainStatus } = await startPasswordSetupServer(input);
         return {
           content: [
             {
@@ -365,6 +410,8 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
                 url,
                 "",
                 `The link expires at ${formatLocalTime(expiresAt)} (about 15 minutes).`,
+                `Keychain test: ${keychainStatus.available ? "passed" : "failed"}.`,
+                keychainStatus.message,
                 "The password is sent only to this local MCP process and never through the chat.",
                 "After saving, restart imap-mcp to apply changes.",
               ].join("\n"),

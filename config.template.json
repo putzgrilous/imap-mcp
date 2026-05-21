@@ -1,0 +1,46 @@
+{
+  "$comment": "Copy this file to config.json and fill in your account details. Passwords are stored in the OS keychain — do NOT put them here.",
+  "version": 2,
+  "locale": "en",
+  "logLevel": "warn",
+  "features": {
+    "_comment": "Read tools are enabled by default. Write/send/watch tools must be explicitly enabled.",
+    "list_accounts": true,
+    "list_folders": true,
+    "list_emails": true,
+    "search_emails": true,
+    "get_email": true,
+    "get_attachment": true,
+    "setup_account": true,
+    "remove_account": true,
+    "update_account": true,
+    "list_config": true,
+    "mark_read": false,
+    "flag_email": false,
+    "move_email": false,
+    "delete_email": false,
+    "create_folder": false,
+    "delete_folder": false,
+    "send_email": false,
+    "reply_email": false,
+    "watch_folder": false
+  },
+  "accounts": [
+    {
+      "name": "My Gmail",
+      "email": "you@gmail.com",
+      "host": "imap.gmail.com",
+      "port": 993,
+      "secure": true,
+      "auth": { "type": "password" }
+    },
+    {
+      "name": "Work Email",
+      "email": "you@yourcompany.com",
+      "host": "mail.yourcompany.com",
+      "port": 993,
+      "secure": true,
+      "auth": { "type": "password" }
+    }
+  ]
+}

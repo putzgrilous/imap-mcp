@@ -1,0 +1,52 @@
+{
+  "name": "imap-mcp",
+  "version": "2.0.0",
+  "description": "Universal MCP server for IMAP email access",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=bundle.js --external:keytar",
+    "package": "npm run bundle && pkg bundle.js --target node20-win-x64 --output imap-mcp.exe"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "imapflow": "^1.0.98",
+    "nodemailer": "^8.0.7",
+    "lru-cache": "^11.4.0",
+    "mailparser": "^3.7.1",
+    "pino": "^10.3.1",
+    "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "keytar": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.4",
+    "@types/nodemailer": "^6.4.17",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "@yao-pkg/pkg": "^5.12.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "pkg": {
+    "assets": [],
+    "targets": [
+      "node20-win-x64",
+      "node20-win-arm64",
+      "node20-macos-x64",
+      "node20-macos-arm64",
+      "node20-linux-x64",
+      "node20-linux-arm64"
+    ]
+  }
+}

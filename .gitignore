@@ -1,0 +1,14 @@
+node_modules/
+dist/
+bundle.js
+*.exe
+*.tsbuildinfo
+
+# Config files may contain credentials — NEVER commit
+config.json
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db

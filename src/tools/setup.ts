@@ -174,6 +174,8 @@ function renderSuccessPage(input: SetupAccountInput, result: {
   storage: "keychain" | "config";
 }): string {
   const storageLabel = result.storage === "keychain" ? "OS keychain" : "config.json";
+  const smtpHost = input.smtp_host ?? input.host.replace(/^imap\./, "smtp.");
+  const smtpPort = input.smtp_port ?? (input.secure ? 465 : 587);
   return [
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\"><title>imap-mcp setup complete</title>",
@@ -205,6 +207,9 @@ function renderSuccessPage(input: SetupAccountInput, result: {
     `<span>${escapeHtml(input.email)}</span>`,
     "</div>",
     "<div class=\"status\">",
+    `<div class=\"row\"><span>IMAP server</span><strong>${escapeHtml(input.host)}:${input.port}</strong></div>`,
+    `<div class=\"row\"><span>IMAP TLS</span><strong>${input.secure ? "enabled" : "disabled"}</strong></div>`,
+    `<div class=\"row\"><span>SMTP server</span><strong>${escapeHtml(smtpHost)}:${smtpPort}</strong></div>`,
     `<div class=\"row\"><span>Password storage</span><strong>${escapeHtml(storageLabel)}</strong></div>`,
     `<div class=\"row\"><span>Keychain verified</span><strong class=\"${result.keychainOk ? "ok" : "warn"}\">${result.keychainOk ? "yes" : "no"}</strong></div>`,
     `<div class=\"row\"><span>Password present in config.json</span><strong class=\"${result.passwordInConfig ? "ok" : "warn"}\">${result.passwordInConfig ? "yes" : "no"}</strong></div>`,

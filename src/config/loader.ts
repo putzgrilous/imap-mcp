@@ -3,6 +3,10 @@ import { ServerConfigSchema, type ServerConfig } from "./schema.js";
 import { ConfigValidationError } from "../errors/types.js";
 import { getConfigCandidates } from "./paths.js";
 
+function readJsonFile(path: string): unknown {
+  return JSON.parse(fs.readFileSync(path, "utf-8").replace(/^\uFEFF/, ""));
+}
+
 export function loadConfig(): ServerConfig {
   const candidates = getConfigCandidates();
 
@@ -11,7 +15,7 @@ export function loadConfig(): ServerConfig {
 
     let raw: unknown;
     try {
-      raw = JSON.parse(fs.readFileSync(candidate, "utf-8"));
+      raw = readJsonFile(candidate);
     } catch (err) {
       throw new ConfigValidationError(
         `Failed to parse config file at ${candidate}: ${err instanceof Error ? err.message : String(err)}`,

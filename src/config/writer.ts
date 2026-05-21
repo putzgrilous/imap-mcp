@@ -5,6 +5,10 @@ import { resolveWritableConfigPath } from "./paths.js";
 
 const log = getLogger("config-writer");
 
+function readJsonFile(path: string): unknown {
+  return JSON.parse(fs.readFileSync(path, "utf-8").replace(/^\uFEFF/, ""));
+}
+
 export function resolveConfigPath(): string {
   return resolveWritableConfigPath();
 }
@@ -12,7 +16,7 @@ export function resolveConfigPath(): string {
 export function loadOrCreateConfig(configPath: string): ServerConfig {
   if (fs.existsSync(configPath)) {
     try {
-      const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const raw = readJsonFile(configPath);
       const result = ServerConfigSchema.safeParse(raw);
       if (result.success) return result.data;
     } catch {

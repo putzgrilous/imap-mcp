@@ -180,7 +180,7 @@ Open that link in your browser, enter the password or app password, and submit t
 
 ## config.json Reference
 
-`imap-mcp` stores your account settings in `config.json`, located in the same folder as the `.exe` (or the project root when running from source).
+`imap-mcp` stores your account settings in `config.json`. If a config already exists next to the `.exe` or in the project root, that file is reused. New setups without an existing config use the OS user config directory, such as `%APPDATA%\imap-mcp\config.json` on Windows.
 
 You do not need to edit this file manually — use `setup_account`, `update_account`, and `remove_account` via Claude.
 
@@ -566,7 +566,7 @@ Abra esse link no navegador, digite a senha ou senha de app e envie o formulári
 
 ## Referência do config.json
 
-O `imap-mcp` salva as configurações de conta no arquivo `config.json`, localizado na mesma pasta do `.exe` (ou na raiz do projeto ao rodar pelo código-fonte).
+O `imap-mcp` salva as configurações de conta no arquivo `config.json`. Se já existir um config na mesma pasta do `.exe` ou na raiz do projeto, esse arquivo é reutilizado. Instalações novas sem config existente usam o diretório de configuração do usuário, como `%APPDATA%\imap-mcp\config.json` no Windows.
 
 Você não precisa editar este arquivo manualmente — use `setup_account`, `update_account` e `remove_account` pelo Claude.
 

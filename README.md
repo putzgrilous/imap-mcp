@@ -1,8 +1,8 @@
 # imap-mcp
 
-**Read, search, send, and organize your emails directly from Claude.**
+**Read, search, send, and organize your emails from MCP-compatible AI clients.**
 
-`imap-mcp` is a local MCP server that connects Claude Desktop to any IMAP email account — Gmail, Outlook, corporate servers, and more. Your password never passes through the chat.
+`imap-mcp` is a local MCP server that connects MCP clients such as Claude Desktop to any IMAP email account — Gmail, Outlook, corporate servers, and more. Your password never passes through the chat.
 
 ---
 
@@ -11,6 +11,7 @@
 - [Quick Start (Windows .exe)](#quick-start-windows-exe)
 - [Quick Start (Node.js / npm)](#quick-start-nodejs--npm)
 - [Configuring Claude Desktop](#configuring-claude-desktop)
+- [ChatGPT Compatibility](#chatgpt-compatibility)
 - [Adding Your First Email Account](#adding-your-first-email-account)
 - [config.json Reference](#configjson-reference)
 - [Available Tools](#available-tools)
@@ -140,6 +141,20 @@ If you need to find it manually:
 ### After every config change
 
 You must **fully quit and reopen** Claude Desktop for changes to take effect. On Windows, right-click the tray icon and choose Quit — closing the window is not enough.
+
+---
+
+## ChatGPT Compatibility
+
+This project currently runs as a **local stdio MCP server** (`command` + `args`). That works with local MCP clients such as Claude Desktop and other clients that can launch a local process.
+
+ChatGPT custom connectors use **remote MCP servers** exposed over HTTPS. To use `imap-mcp` directly from ChatGPT, this project would need a remote MCP wrapper/deployment with authentication, HTTPS, and the connector endpoints expected by ChatGPT.
+
+Recommended approach:
+
+- Use this repository as-is for local MCP clients.
+- For ChatGPT, deploy a separate remote MCP variant.
+- Start with read-only tools (`list_emails`, `search_emails`, `get_email`) before enabling write actions such as `send_email`, `move_email`, or `delete_email`.
 
 ---
 
@@ -376,9 +391,9 @@ This is normal — do not replace it with a plain `tsc` call.
 
 # README em Português
 
-**Leia, pesquise, envie e organize seus emails diretamente pelo Claude.**
+**Leia, pesquise, envie e organize seus emails em clientes de IA compatíveis com MCP.**
 
-`imap-mcp` é um servidor MCP local que conecta o Claude Desktop a qualquer conta de email IMAP — Gmail, Outlook, servidores corporativos e mais. Sua senha nunca passa pelo chat.
+`imap-mcp` é um servidor MCP local que conecta clientes MCP, como o Claude Desktop, a qualquer conta de email IMAP — Gmail, Outlook, servidores corporativos e mais. Sua senha nunca passa pelo chat.
 
 ---
 
@@ -387,6 +402,7 @@ This is normal — do not replace it with a plain `tsc` call.
 - [Início rápido (Windows .exe)](#início-rápido-windows-exe)
 - [Início rápido (Node.js / npm)](#início-rápido-nodejs--npm)
 - [Configurando o Claude Desktop](#configurando-o-claude-desktop)
+- [Compatibilidade com ChatGPT](#compatibilidade-com-chatgpt)
 - [Adicionando sua primeira conta](#adicionando-sua-primeira-conta)
 - [Referência do config.json](#referência-do-configjson)
 - [Ferramentas disponíveis](#ferramentas-disponíveis)
@@ -511,6 +527,20 @@ Se precisar encontrar manualmente:
 ### Após cada alteração
 
 Você precisa **fechar completamente e reabrir** o Claude Desktop. No Windows, clique com o botão direito no ícone da bandeja do sistema e escolha Sair — fechar a janela não é suficiente.
+
+---
+
+## Compatibilidade com ChatGPT
+
+Este projeto atualmente roda como um **servidor MCP local via stdio** (`command` + `args`). Isso funciona com clientes MCP locais como o Claude Desktop e outros clientes capazes de iniciar um processo local.
+
+Conectores customizados do ChatGPT usam **servidores MCP remotos** expostos via HTTPS. Para usar o `imap-mcp` diretamente no ChatGPT, seria necessário criar uma variante/wrapper MCP remoto com autenticação, HTTPS e endpoints compatíveis com conectores do ChatGPT.
+
+Abordagem recomendada:
+
+- Use este repositório como está para clientes MCP locais.
+- Para ChatGPT, publique uma variante MCP remota separada.
+- Comece com ferramentas somente leitura (`list_emails`, `search_emails`, `get_email`) antes de habilitar ações de escrita como `send_email`, `move_email` ou `delete_email`.
 
 ---
 

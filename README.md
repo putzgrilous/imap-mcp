@@ -172,7 +172,7 @@ Claude will call `setup_account` and return a temporary local link like:
 http://127.0.0.1:7823/setup?token=...
 ```
 
-Open that link in your browser, enter the password or app password, and submit the form. The link expires in 5 minutes. The password is sent only to the local MCP process, never through the chat.
+Open that link in your browser, enter the password or app password, and submit the form. The link expires in 15 minutes. The password is sent only to the local MCP process, never through the chat.
 
 > **Gmail and Outlook users:** You need an **App Password**, not your regular login password. See [Provider Setup Guides](#provider-setup-guides).
 
@@ -375,7 +375,7 @@ This is normal — do not replace it with a plain `tsc` call.
 
 **Setup link doesn't open**
 - Copy the full `http://127.0.0.1:.../setup?token=...` URL into your browser.
-- The link expires after 5 minutes. Run `setup_account` again if it expired.
+- The link expires after 15 minutes. Run `setup_account` again if it expired.
 
 **Gmail: authentication failed**
 - You must use an App Password, not your regular Gmail password. See [Gmail setup](#gmail).
@@ -558,7 +558,7 @@ O Claude chamará `setup_account` e retornará um link local temporário como:
 http://127.0.0.1:7823/setup?token=...
 ```
 
-Abra esse link no navegador, digite a senha ou senha de app e envie o formulário. O link expira em 5 minutos. A senha é enviada apenas para o processo MCP local, nunca pelo chat.
+Abra esse link no navegador, digite a senha ou senha de app e envie o formulário. O link expira em 15 minutos. A senha é enviada apenas para o processo MCP local, nunca pelo chat.
 
 > **Usuários do Gmail e Outlook:** Você precisa de uma **Senha de App**, não sua senha normal. Veja os [Guias por provedor](#guias-por-provedor).
 
@@ -702,7 +702,7 @@ Requisitos: Node.js 20+, npm 10+.
 
 **O link de setup não abre**
 - Copie a URL completa `http://127.0.0.1:.../setup?token=...` para o navegador.
-- O link expira em 5 minutos. Rode `setup_account` novamente se ele expirar.
+- O link expira em 15 minutos. Rode `setup_account` novamente se ele expirar.
 
 **Gmail: falha de autenticação**
 - Use uma Senha de App, não sua senha normal do Gmail.

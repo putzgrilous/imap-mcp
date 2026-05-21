@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AccountConfig, FeaturesConfig } from "../config/schema.js";
 import { resolveConfigPath, loadOrCreateConfig, saveConfig } from "../config/writer.js";
-import { setKeychainPassword } from "../credentials/keychain.js";
+import { getKeychainPassword, setKeychainPassword } from "../credentials/keychain.js";
 import { getLogger } from "../logging/logger.js";
 
 const log = getLogger("setup");
@@ -61,7 +61,8 @@ async function saveAccountWithPassword(input: SetupAccountInput, password: strin
   configPath: string;
   keychainOk: boolean;
 }> {
-  const keychainOk = await setKeychainPassword(input.email, password);
+  const keychainWriteOk = await setKeychainPassword(input.email, password);
+  const keychainOk = keychainWriteOk && await getKeychainPassword(input.email) === password;
   const configPath = resolveConfigPath();
   const current = loadOrCreateConfig(configPath);
 
@@ -117,7 +118,7 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
   expiresAt: Date;
 }> {
   const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   let completed = false;
 
   const server = http.createServer((req, res) => {
@@ -126,8 +127,24 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
       const validToken = requestUrl.searchParams.get("token") === token;
       const expired = Date.now() > expiresAt.getTime();
 
-      if (requestUrl.pathname !== "/setup" || !validToken || expired) {
-        sendHtml(res, 404, "<h1>Setup link invalid or expired</h1>");
+      if (requestUrl.pathname === "/favicon.ico") {
+        res.writeHead(204, { "cache-control": "no-store" });
+        res.end();
+        return;
+      }
+
+      if (requestUrl.pathname !== "/setup") {
+        sendHtml(res, 404, "<h1>Setup link not found</h1>");
+        return;
+      }
+
+      if (!validToken) {
+        sendHtml(res, 403, "<h1>Setup token invalid</h1><p>Run setup_account again and open the full URL returned by the MCP tool.</p>");
+        return;
+      }
+
+      if (expired) {
+        sendHtml(res, 410, "<h1>Setup link expired</h1><p>Run setup_account again to generate a fresh link.</p>");
         return;
       }
 
@@ -243,7 +260,7 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
                 "",
                 url,
                 "",
-                `The link expires at ${expiresAt.toLocaleTimeString()} (about 5 minutes).`,
+                `The link expires at ${expiresAt.toLocaleTimeString()} (about 15 minutes).`,
                 "The password is sent only to this local MCP process and never through the chat.",
                 "After saving, restart imap-mcp to apply changes.",
               ].join("\n"),

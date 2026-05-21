@@ -59,6 +59,11 @@ function sendHtml(res: http.ServerResponse, statusCode: number, html: string): v
   res.end(html);
 }
 
+function formatLocalTime(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 async function saveAccountWithPassword(input: SetupAccountInput, password: string, storageMode: CredentialStorageMode): Promise<{
   configPath: string;
   keychainOk: boolean;
@@ -156,7 +161,56 @@ function renderPasswordForm(input: SetupAccountInput, expiresAt: Date): string {
     "<p class=\"hint\">Choose config.json if the OS keychain is unavailable or not persisting credentials.</p>",
     "<button type=\"submit\">Save account</button>",
     "</form>",
-    `<p class=\"footer\">This link expires at ${escapeHtml(expiresAt.toLocaleTimeString())}. Close this tab after saving.</p>`,
+    `<p class=\"footer\">This link expires at ${escapeHtml(formatLocalTime(expiresAt))}. Close this tab after saving.</p>`,
+    "</main>",
+    "</body></html>",
+  ].join("");
+}
+
+function renderSuccessPage(input: SetupAccountInput, result: {
+  configPath: string;
+  keychainOk: boolean;
+  passwordInConfig: boolean;
+  storage: "keychain" | "config";
+}): string {
+  const storageLabel = result.storage === "keychain" ? "OS keychain" : "config.json";
+  return [
+    "<!doctype html>",
+    "<html><head><meta charset=\"utf-8\"><title>imap-mcp setup complete</title>",
+    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
+    "<style>",
+    ":root{color-scheme:light dark;--bg:#f6f7f9;--panel:#fff;--text:#172033;--muted:#5f6b7a;--line:#d9dee7;--accent:#1f6feb;--ok:#16833a;--warn:#a15c00}",
+    "@media(prefers-color-scheme:dark){:root{--bg:#101419;--panel:#171c22;--text:#eef2f7;--muted:#a8b3c1;--line:#303946;--accent:#66a3ff;--ok:#51c878;--warn:#f5b65a}}",
+    "*{box-sizing:border-box}",
+    "body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.45;display:grid;place-items:center;padding:24px}",
+    "main{width:min(640px,100%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:28px;box-shadow:0 18px 45px rgba(18,29,43,.12)}",
+    "h1{font-size:24px;line-height:1.2;margin:0 0 8px}",
+    "p{margin:0 0 16px}",
+    ".meta{color:var(--muted)}",
+    ".account{padding:14px 16px;border:1px solid var(--line);border-radius:8px;margin:18px 0;background:rgba(127,127,127,.05)}",
+    ".account strong{display:block;font-size:16px;margin-bottom:2px}",
+    ".status{display:grid;gap:10px;margin:18px 0}",
+    ".row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}",
+    ".row span:first-child{color:var(--muted)}",
+    ".ok{color:var(--ok);font-weight:700}",
+    ".warn{color:var(--warn);font-weight:700}",
+    ".path{word-break:break-all;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}",
+    ".footer{border-top:1px solid var(--line);padding-top:16px;margin-top:22px;font-size:13px;color:var(--muted)}",
+    "</style></head><body>",
+    "<main>",
+    "<h1>Account saved</h1>",
+    "<p class=\"meta\">The account was configured successfully.</p>",
+    "<div class=\"account\">",
+    `<strong>${escapeHtml(input.name)}</strong>`,
+    `<span>${escapeHtml(input.email)}</span>`,
+    "</div>",
+    "<div class=\"status\">",
+    `<div class=\"row\"><span>Password storage</span><strong>${escapeHtml(storageLabel)}</strong></div>`,
+    `<div class=\"row\"><span>Keychain verified</span><strong class=\"${result.keychainOk ? "ok" : "warn"}\">${result.keychainOk ? "yes" : "no"}</strong></div>`,
+    `<div class=\"row\"><span>Password present in config.json</span><strong class=\"${result.passwordInConfig ? "ok" : "warn"}\">${result.passwordInConfig ? "yes" : "no"}</strong></div>`,
+    `<div class=\"row\"><span>Config</span><strong class=\"path\">${escapeHtml(result.configPath)}</strong></div>`,
+    "</div>",
+    "<p class=\"footer\">Restart imap-mcp to apply changes. You can close this tab.</p>",
     "</main>",
     "</body></html>",
   ].join("");
@@ -227,20 +281,10 @@ async function startPasswordSetupServer(input: SetupAccountInput): Promise<{
             return;
           }
 
-          const { configPath, keychainOk, passwordInConfig, storage } = await saveAccountWithPassword(input, password, storageMode);
+          const result = await saveAccountWithPassword(input, password, storageMode);
           completed = true;
-          sendHtml(res, 200, [
-            "<!doctype html><html><head><meta charset=\"utf-8\"><title>imap-mcp setup complete</title></head><body>",
-            "<h1>Account saved</h1>",
-            `<p>${escapeHtml(input.email)} was configured successfully.</p>`,
-            `<p>Password storage: ${storage === "keychain" ? "OS keychain" : "config.json"}</p>`,
-            `<p>Keychain verified: ${keychainOk ? "yes" : "no"}</p>`,
-            `<p>Password present in config.json: ${passwordInConfig ? "yes" : "no"}</p>`,
-            `<p>Config: ${escapeHtml(configPath)}</p>`,
-            "<p>Restart imap-mcp to apply changes.</p>",
-            "</body></html>",
-          ].join(""));
-          log.info({ email: input.email, host: input.host, port: input.port, keychainOk }, "Account configured");
+          sendHtml(res, 200, renderSuccessPage(input, result));
+          log.info({ email: input.email, host: input.host, port: input.port, keychainOk: result.keychainOk }, "Account configured");
           setTimeout(() => server.close(), 250);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -315,7 +359,7 @@ export function registerSetupTool(server: McpServer, features?: Pick<FeaturesCon
                 "",
                 url,
                 "",
-                `The link expires at ${expiresAt.toLocaleTimeString()} (about 15 minutes).`,
+                `The link expires at ${formatLocalTime(expiresAt)} (about 15 minutes).`,
                 "The password is sent only to this local MCP process and never through the chat.",
                 "After saving, restart imap-mcp to apply changes.",
               ].join("\n"),
